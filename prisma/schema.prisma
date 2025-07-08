@@ -1,0 +1,437 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  //directUrl = env("DIRECT_URL")
+}
+
+// ===== ENUMS =====
+enum UnidadDeMedida {
+  KILOGRAMOS_01
+  LIBRAS_02
+  TONELADAS_LARGAS_03
+  TONELADAS_METRICAS_04
+  TONELADAS_CORTAS_05
+  GRAMOS_06
+  UNIDADES_07
+  LITROS_08
+  GALONES_09
+  BARRILES_10
+  LATAS_11
+  CAJAS_12
+  MILLARES_13
+  METROS_CUBICOS_14
+  METROS_15
+}
+
+enum TipoTransaccion {
+  INGRESO
+  VENTA
+  INICIAL
+}
+
+enum EstadoEntrega {
+  RECHAZADO
+  PENDIENTE
+  ENTREGADO
+  EN_CAMINO
+  PREPARANDO
+}
+
+enum EstadoPago {
+  RECHAZADO
+  EN_VERIFICACION
+  PAGADO
+  PARCIAL
+  DEVOLUCION_PENDIENTE
+}
+
+enum TipoOperacion {
+  COMPRA_NACIONAL_02
+  CONSIGNACION_RECIBIDA_03
+  DEVOLUCION_RECIBIDA_05
+  SALDO_INICIAL_16
+  IMPORTACION_18
+  ENTRADA_PRODUCCION_19
+  DEVOLUCION_PRODUCCION_20
+  TRANSFERENCIA_ALMACENES_INC_21
+  DEVOLUCION_CLIENTE_24
+  VENTA_NACIONAL_01
+  CONSIGNACION_ENTREGADA_04
+  DEVOLUCION_ENTREGADA_06
+  DONACION_09
+  SALIDA_PRODUCCION_10
+  TRANSFERENCIA_ALMACENES_SAL_11
+  RETIRO_12
+  MERMAS_13
+  DESMEDROS_14
+  EXPORTACION_17
+}
+
+enum TipoDocumento {
+  OTROS_00
+  FACTURA_01
+  RECIBO_HONORARIOS_02
+  BOLETA_VENTA_03
+  LIQUIDACION_COMPRA_04
+  NOTA_CREDITO_07
+  NOTA_DEBITO_08
+  GUIA_REMISION_09
+  RECIBO_ARRENDAMIENTO_10
+  RECIBO_SERVICIOS_PUBLICOS_14
+  COMPROBANTE_PERCEPCION_40
+  DECLARACION_ADUANAS_50
+}
+
+enum TipoIdentificacion {
+  DNI
+  RUC
+  CE
+}
+
+enum EstadoKardex {
+  ABIERTO
+  CERRADO
+}
+
+// ===== MODELOS GEOGRÁFICOS =====
+model Region {
+  idRegion String @id @db.VarChar(40)
+  codigo   String @unique @db.VarChar(10)
+  nombre   String @db.VarChar(100)
+
+  // Relaciones
+  provincias Provincia[]
+}
+
+model Provincia {
+  idProvincia String @id @db.VarChar(40)
+  codigo      String @unique @db.VarChar(10)
+  nombre      String @db.VarChar(100)
+  idRegion    String @db.VarChar(40)
+
+  // Relaciones
+  region    Region     @relation(fields: [idRegion], references: [idRegion], onDelete: Restrict, map: "Region_to_Provincia")
+  distritos Distrito[]
+}
+
+model Distrito {
+  idDistrito  String @id @db.VarChar(40)
+  codigo      String @unique @db.VarChar(10)
+  nombre      String @db.VarChar(100)
+  idProvincia String @db.VarChar(40)
+
+  // Relaciones
+  provincia   Provincia   @relation(fields: [idProvincia], references: [idProvincia], onDelete: Restrict, map: "Provincia_to_Distrito")
+  ubicaciones Ubicacion[]
+}
+
+model Ubicacion {
+  idUbicacion  String  @id @db.VarChar(40)
+  direccion    String  @db.VarChar(200)
+  referencia   String? @db.VarChar(200)
+  codigoPostal String? @db.VarChar(10)
+  idDistrito   String  @db.VarChar(40)
+
+  // Relaciones
+  distrito       Distrito    @relation(fields: [idDistrito], references: [idDistrito], onDelete: Restrict, map: "Distrito_to_Ubicacion")
+  proveedores    Proveedor[]
+  clientes       Cliente[]
+  salidasEntrega Salida[]    @relation("UbicacionEntrega")
+}
+
+// ===== USUARIOS Y ROLES =====
+model Roles {
+  idRol       String  @id @db.VarChar(40)
+  nombre      String  @unique @db.VarChar(25)
+  descripcion String? @db.VarChar(255)
+
+  // Relaciones
+  usuariosRoles UsuariosRoles[]
+}
+
+model Usuarios {
+  idUsuario       String  @id @db.VarChar(40)
+  dni             String  @unique @db.VarChar(8)
+  correo          String  @unique @db.VarChar(40)
+  contrasena      String @map("contraseña") @db.VarChar(255)
+  nombre          String  @db.VarChar(25)
+  apellidoMaterno String? @db.VarChar(25)
+  apellidoPaterno String? @db.VarChar(25)
+  telefono        String? @db.VarChar(9)
+
+  // Relaciones
+  usuariosRoles   UsuariosRoles[]
+  ingresos        Ingreso[]
+  salidas         Salida[]
+  entradasKardex  EntradaKardex[]
+  resumenesKardex ResumenKardex[]
+}
+
+model UsuariosRoles {
+  idUsuario String @db.VarChar(40)
+  idRol     String @db.VarChar(40)
+
+  // Relaciones
+  usuario Usuarios @relation(fields: [idUsuario], references: [idUsuario], onDelete: Cascade, map: "Usuario_to_UsuariosRoles")
+  rol     Roles    @relation(fields: [idRol], references: [idRol], onDelete: Cascade, map: "Rol_to_UsuariosRoles")
+
+  @@id([idUsuario, idRol])
+}
+
+// ===== PRODUCTOS Y CATEGORÍAS =====
+model Categoria {
+  idCategoria String  @id @db.VarChar(40)
+  codigo      String  @unique @db.VarChar(20)
+  nombre      String  @db.VarChar(35)
+  descripcion String? @db.VarChar(70)
+
+  // Relaciones
+  productos Producto[]
+}
+
+model Producto {
+  idProducto       String         @id @db.VarChar(40)
+  codigo           String         @unique @db.VarChar(20)
+  nombre           String         @db.VarChar(150)
+  precioUnitario   Float
+  precioMayoreo    Float
+  costo            Float
+  stock            Int            @default(0)
+  stockMinimo      Int            @default(0)
+  imagenProducto   String         @db.VarChar(250)
+  porcentaje       String         @db.VarChar(4)
+  gramos           String         @db.VarChar(5)
+  descripcion      String         @db.VarChar(250)
+  ingredientes     Json
+  estado           Boolean
+  unidadMedida     UnidadDeMedida @default(UNIDADES_07)
+  idCategoria      String         @db.VarChar(40)
+  fechaVencimiento DateTime?      @db.Date
+
+  // Relaciones
+  categoria        Categoria         @relation(fields: [idCategoria], references: [idCategoria])
+  entradasKardex   EntradaKardex[]
+  resumenesKardex  ResumenKardex[]
+  productosSalida  ProductoSalida[]
+  productosIngreso ProductoIngreso[]
+}
+
+model MateriaPrima {
+  idMateriaPrima String         @id @db.VarChar(40)
+  codigo         String         @unique @db.VarChar(20)
+  nombre         String         @db.VarChar(100)
+  precioUnitario Float?         @default(0)
+  precioMayoreo  Float?         @default(0)
+  costo          Float
+  unidadMedida   UnidadDeMedida
+  stock          Int            @default(0)
+
+  // Relaciones
+  entradasKardex       EntradaKardex[]
+  resumenesKardex      ResumenKardex[]
+  salidasMateriaPrima  SalidaMateriaPrima[]
+  ingresosMateriaPrima IngresoMateriaPrima[]
+}
+
+// ===== PROVEEDORES Y CLIENTES =====
+model Proveedor {
+  idProveedor    String  @id @db.VarChar(40)
+  ruc            String  @unique @db.VarChar(11)
+  nombreContacto String? @db.VarChar(100)
+  razonSocial    String  @db.VarChar(150)
+  correo         String? @db.VarChar(100)
+  telefono       String? @db.VarChar(15)
+  idUbicacion    String  @db.VarChar(40)
+
+  // Relaciones
+  ubicacion Ubicacion @relation(fields: [idUbicacion], references: [idUbicacion], onDelete: Restrict, map: "Ubicacion_to_Proveedor")
+  ingresos  Ingreso[]
+  salidas   Salida[]
+}
+
+model Cliente {
+  idCliente       String             @id @db.VarChar(40)
+  tipoDocumento   TipoIdentificacion @default(DNI)
+  documento       String             @unique @db.VarChar(20)
+  nombre          String             @db.VarChar(25)
+  apellidoMaterno String             @db.VarChar(25)
+  apellidoPaterno String             @db.VarChar(25)
+  correo          String?            @db.VarChar(40)
+  telefono        String?            @db.VarChar(9)
+  fechaNacimiento DateTime?          @db.Date
+  idUbicacion     String             @db.VarChar(40)
+
+  // Relaciones
+  ubicacion Ubicacion @relation(fields: [idUbicacion], references: [idUbicacion], onDelete: Restrict, map: "Ubicacion_to_Cliente")
+  salidas   Salida[]
+}
+
+// ===== INGRESOS Y SALIDAS =====
+model Ingreso {
+  idIngreso     String        @id @db.VarChar(40)
+  montoTotal    Float
+  idProveedor   String?       @db.VarChar(40)
+  fechaCompra   DateTime      @default(now())
+  fechaLlegada  DateTime      @db.Date
+  tipoOperacion TipoOperacion
+  tipoDocumento TipoDocumento
+  numero        Int
+  serie         String        @db.VarChar(4)
+  idUsuario     String        @db.VarChar(40)
+
+  // Relaciones
+  proveedor            Proveedor?            @relation(fields: [idProveedor], references: [idProveedor], onDelete: SetNull, map: "Proveedor_to_Ingreso")
+  usuario              Usuarios              @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict, map: "Usuario_to_Ingreso")
+  entradasKardex       EntradaKardex[]
+  productosIngreso     ProductoIngreso[]
+  ingresosMateriaPrima IngresoMateriaPrima[]
+
+  @@unique([serie, numero])
+}
+
+model Salida {
+  idSalida           String        @id @db.VarChar(40)
+  montoTotal         Float
+  tipoOperacion      TipoOperacion
+  tipoDocumento      TipoDocumento
+  fecha              DateTime      @default(now())
+  fechaEntrega       DateTime
+  estadoEntrega      EstadoEntrega @default(PENDIENTE)
+  estadoPago         EstadoPago    @default(EN_VERIFICACION)
+  numero             Int
+  serie              String        @db.VarChar(4)
+  idCliente          String?       @db.VarChar(40)
+  idProveedor        String?       @db.VarChar(40)
+  idUsuario          String        @db.VarChar(40)
+  idUbicacionEntrega String?       @db.VarChar(40)
+
+  // Relaciones
+  cliente             Cliente?             @relation(fields: [idCliente], references: [idCliente], onDelete: SetNull, map: "Cliente_to_Venta")
+  proveedor           Proveedor?           @relation(fields: [idProveedor], references: [idProveedor], onDelete: SetNull, map: "Proveedor_to_Venta")
+  usuario             Usuarios             @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict, map: "Usuario_to_Venta")
+  ubicacionEntrega    Ubicacion?           @relation("UbicacionEntrega", fields: [idUbicacionEntrega], references: [idUbicacion], onDelete: SetNull, map: "Ubicacion_to_Venta")
+  entradasKardex      EntradaKardex[]
+  productosSalida     ProductoSalida[]
+  salidasMateriaPrima SalidaMateriaPrima[]
+
+  @@unique([serie, numero])
+}
+
+// ===== KARDEX =====
+model EntradaKardex {
+  idEntradaKardex  String          @id @db.VarChar(40)
+  numeroLote       String          @db.VarChar(10)
+  tipoDocumento    TipoDocumento
+  numero           Int?
+  serie            String?         @db.VarChar(4)
+  tipoOperacion    TipoOperacion
+  tipoTransaccion  TipoTransaccion
+  fecha            DateTime        @default(now())
+  idProducto       String?         @db.VarChar(40)
+  idMateriaPrima   String?         @db.VarChar(40)
+  cantidad         Int
+  stockAnterior    Int
+  stockActual      Int
+  precioUnitario   Float
+  montoTotal       Float
+  idIngreso        String?         @db.VarChar(40)
+  idSalida         String?         @db.VarChar(40)
+  idUsuarioCreador String          @db.VarChar(40)
+
+  // Relaciones
+  producto       Producto?     @relation(fields: [idProducto], references: [idProducto], onDelete: SetNull, map: "Producto_to_EntradaKardex")
+  materiaPrima   MateriaPrima? @relation(fields: [idMateriaPrima], references: [idMateriaPrima], onDelete: SetNull, map: "MateriaPrima_to_EntradaKardex")
+  ingreso        Ingreso?      @relation(fields: [idIngreso], references: [idIngreso], onDelete: SetNull, map: "Ingreso_to_EntradaKardex")
+  salida         Salida?       @relation(fields: [idSalida], references: [idSalida], onDelete: SetNull, map: "Venta_to_EntradaKardex")
+  usuarioCreador Usuarios      @relation(fields: [idUsuarioCreador], references: [idUsuario], onDelete: Restrict, map: "Usuario_to_EntradaKardex")
+}
+
+model ResumenKardex {
+  idResumenKardex      String       @id @db.VarChar(40)
+  anio                 Int          @map("año")
+  mes                  Int
+  numeroLote           String       @db.VarChar(10)
+  idProducto           String?      @db.VarChar(40)
+  codigoProducto       String?      @db.VarChar(20)
+  idMateriaPrima       String?      @db.VarChar(40)
+  codigoMateriaPrima   String?      @db.VarChar(20)
+  cantidadInicial      Int
+  costoUnitarioInicial Float
+  costoTotalInicial    Float
+  cantidadIngreso      Int
+  costoTotalIngreso    Float
+  cantidadSalida       Int
+  costoTotalSalida     Float
+  cantidadFinal        Int
+  costoUnitarioFinal   Float
+  costoTotalFinal      Float
+  estado               EstadoKardex @default(CERRADO)
+  idUsuarioGenerador   String       @db.VarChar(40)
+
+  // Relaciones
+  producto         Producto?     @relation(fields: [idProducto], references: [idProducto], onDelete: SetNull, map: "Producto_to_ResumenKardex")
+  materiaPrima     MateriaPrima? @relation(fields: [idMateriaPrima], references: [idMateriaPrima], onDelete: SetNull, map: "MateriaPrima_to_ResumenKardex")
+  usuarioGenerador Usuarios      @relation(fields: [idUsuarioGenerador], references: [idUsuario], onDelete: Restrict, map: "Usuario_to_ResumenKardex")
+}
+
+// ===== TABLAS DE DETALLE =====
+model ProductoSalida {
+  idProductoSalida String @id @db.VarChar(40)
+  idSalida         String @db.VarChar(40)
+  idProducto       String @db.VarChar(40)
+  descripcion      String @db.VarChar(255)
+  cantidad         Int
+  precioUnitario   Float
+
+  // Relaciones
+  salida   Salida   @relation(fields: [idSalida], references: [idSalida], onDelete: Cascade, map: "Venta_to_ProductoSalida")
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Cascade, map: "Producto_to_ProductoSalida")
+}
+
+model SalidaMateriaPrima {
+  idSalidaMateriaPrima String @id @db.VarChar(40)
+  idSalida             String @db.VarChar(40)
+  idMateriaPrima       String @db.VarChar(40)
+  descripcion          String @db.VarChar(255)
+  cantidad             Int
+  precioUnitario       Float
+
+  // Relaciones
+  salida       Salida       @relation(fields: [idSalida], references: [idSalida], onDelete: Cascade, map: "Venta_to_SalidaMateriaPrima")
+  materiaPrima MateriaPrima @relation(fields: [idMateriaPrima], references: [idMateriaPrima], onDelete: Cascade, map: "MateriaPrima_to_SalidaMateriaPrima")
+}
+
+model ProductoIngreso {
+  idProductoIngreso String    @id @db.VarChar(40)
+  idIngreso         String    @db.VarChar(40)
+  idProducto        String    @db.VarChar(40)
+  descripcion       String    @db.VarChar(255)
+  cantidad          Int
+  costoUnitario     Float
+  fechaVencimiento  DateTime? @db.Date
+
+  // Relaciones
+  ingreso  Ingreso  @relation(fields: [idIngreso], references: [idIngreso], onDelete: Cascade, map: "Ingreso_to_ProductoIngreso")
+  producto Producto @relation(fields: [idProducto], references: [idProducto], onDelete: Cascade, map: "Producto_to_ProductoIngreso")
+}
+
+model IngresoMateriaPrima {
+  idIngresoMateriaPrima String    @id @db.VarChar(40)
+  idIngreso             String    @db.VarChar(40)
+  idMateriaPrima        String    @db.VarChar(40)
+  descripcion           String    @db.VarChar(255)
+  cantidad              Int
+  costoUnitario         Float
+  fechaVencimiento      DateTime? @db.Date
+
+  // Relaciones
+  ingreso      Ingreso      @relation(fields: [idIngreso], references: [idIngreso], onDelete: Cascade, map: "Ingreso_to_IngresoMateriaPrima")
+  materiaPrima MateriaPrima @relation(fields: [idMateriaPrima], references: [idMateriaPrima], onDelete: Cascade, map: "MateriaPrima_to_IngresoMateriaPrima")
+}
