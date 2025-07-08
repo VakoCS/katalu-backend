@@ -118,100 +118,114 @@ const crearSalida = async (req, res) => {
 
 // GET - Obtener lista de salidas
 const obtenerSalidas = async (req, res) => {
-  try {
-    const salidas = await prisma.salida.findMany({
-      include: {
-        cliente: {
-          select: {
-            documento: true,
-            nombre: true,
-            apellidoPaterno: true,
-            apellidoMaterno: true
-          }
-        },
-        proveedor: {
-          select: {
-            ruc: true,
-            razonSocial: true
-          }
-        },
-        usuario: {
-          select: {
-            nombre: true,
-            apellidoPaterno: true,
-            apellidoMaterno: true
-          }
-        },
-        productosSalida: {
-          include: {
-            producto: {
-              select: {
-                codigo: true,
-                nombre: true
+    try {
+      const salidas = await prisma.salida.findMany({
+        where: {
+          AND: [
+            {
+              estadoEntrega: {
+                notIn: ['RECHAZADO']
+              }
+            },
+            {
+              estadoPago: {
+                notIn: ['RECHAZADO', 'DEVOLUCION_PENDIENTE']
               }
             }
-          }
-        }
-      },
-      orderBy: {
-        fecha: 'desc'
-      }
-    });
-
-    res.status(200).json({
-      success: true,
-      count: salidas.length,
-      data: salidas
-    });
-
-  } catch (error) {
-    console.error('Error al obtener salidas:', error);
-    res.status(500).json({
-      error: 'Error interno del servidor',
-      message: error.message
-    });
-  }
-};
-
-
-// GET - Obtener lista de productos
-const obtenerProductos = async (req, res) => {
-    try {
-      const productos = await prisma.producto.findMany({
-        where: {
-          estado: true // Solo productos activos
+          ]
         },
-        select: {
-          idProducto: true,
-          codigo: true,
-          nombre: true,
-          precioUnitario: true,
-          stock: true,
-          categoria: {
+        include: {
+          cliente: {
             select: {
-              nombre: true
+              documento: true,
+              nombre: true,
+              apellidoPaterno: true,
+              apellidoMaterno: true
+            }
+          },
+          proveedor: {
+            select: {
+              ruc: true,
+              razonSocial: true
+            }
+          },
+          usuario: {
+            select: {
+              nombre: true,
+              apellidoPaterno: true,
+              apellidoMaterno: true
+            }
+          },
+          productosSalida: {
+            include: {
+              producto: {
+                select: {
+                  codigo: true,
+                  nombre: true
+                }
+              }
             }
           }
         },
         orderBy: {
-          nombre: 'asc'
+          fecha: 'desc'
         }
       });
   
       res.status(200).json({
         success: true,
-        count: productos.length,
-        data: productos
+        count: salidas.length,
+        data: salidas
       });
   
     } catch (error) {
-      console.error('Error al obtener productos:', error);
+      console.error('Error al obtener salidas:', error);
       res.status(500).json({
         error: 'Error interno del servidor',
         message: error.message
       });
     }
   };
+
+
+// GET - Obtener lista de productos
+const obtenerProductos = async (req, res) => {
+  try {
+    const productos = await prisma.producto.findMany({
+      where: {
+        estado: true // Solo productos activos
+      },
+      select: {
+        idProducto: true,
+        codigo: true,
+        nombre: true,
+        precioUnitario: true,
+        stock: true,
+        categoria: {
+          select: {
+            nombre: true
+          }
+        }
+      },
+      orderBy: {
+        nombre: 'asc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: productos.length,
+      data: productos
+    });
+
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+};
   
   // GET - Buscar cliente por DNI
   const buscarClientePorDNI = async (req, res) => {
